@@ -206,12 +206,12 @@
   /* Flags / insights */
   .flag-list { display: flex; flex-direction: column; gap: 10px; }
   .flag {
-    display: flex; gap: 10px; padding: 11px 13px; border-radius: 6px;
+    padding: 11px 14px 11px 16px; border-radius: 6px;
     background: var(--color-paper); border: 1px solid var(--color-border);
+    border-left: 3px solid var(--color-accent);
     font-size: 13.5px; line-height: 1.45;
   }
-  .flag .dot { flex-shrink:0; width:7px; height:7px; border-radius:50%; margin-top:6px; background: var(--color-accent); }
-  .flag.warn .dot { background: var(--color-warn); }
+  .flag.warn { border-left-color: var(--color-warn); }
   .flag b { font-weight: 600; }
 
   /* Table */
@@ -695,128 +695,11 @@ function barRow(label, valueFrac, benchFrac){
   </div>`;
 }
 
-/* ============================= LIVE SEC EDGAR OVERLAP LOOKUP =============================
-   CONFIRMED NON-FUNCTIONAL as a plain client-side call: SEC's www.sec.gov/files/*.json
-   endpoint doesn't send an Access-Control-Allow-Origin header, so browsers block any page
-   not served from sec.gov itself from reading the response (a CORS block, verified against
-   a live GitHub Pages deployment — this is not a hosting-location problem, it can't be fixed
-   by hosting this file anywhere else). The code below is left in place — it's correct logic
-   and would work from a server-side proxy — but expect every call to fail with a CORS error
-   until this app has a small backend in front of it. Kept for that future step; the
-   sector-category grouping above is the working substitute in the meantime.
-
-   Also worth noting even if CORS weren't a problem: this only ever covers funds REGISTERED
-   WITH THE US SEC — most US-listed ETFs (e.g. SCHD, IGM here), but NOT Canadian-domiciled
-   ETFs (XEQT, VCN, VFV-the-Canadian-one, etc), which file with Canadian regulators instead.
-============================================================================================ */
-
-let _fundTickerMapPromise = null;
-const _secCache = { submissions:{}, holdings:{} };
-
-async function loadFundTickerMap(){
-  if (!_fundTickerMapPromise){
-    _fundTickerMapPromise = fetch('https://www.sec.gov/files/company_tickers_mf.json')
-      .then(r => { if (!r.ok) throw new Error('SEC fund ticker file: HTTP ' + r.status); return r.json(); })
-      .then(json => {
-        const map = new Map();
-        if (Array.isArray(json.data)){
-          const fields = json.fields || ['cik','seriesId','classId','symbol'];
-          const symIdx = fields.indexOf('symbol');
-          const cikIdx = fields.indexOf('cik');
-          json.data.forEach(row => {
-            const sym = (row[symIdx]||'').toUpperCase();
-            if (sym) map.set(sym, {cik: row[cikIdx], seriesId: row[fields.indexOf('seriesId')], classId: row[fields.indexOf('classId')]});
-          });
-        } else {
-          Object.values(json).forEach(row => {
-            const sym = (row.symbol||row.ticker||'').toUpperCase();
-            if (sym) map.set(sym, {cik: row.cik, seriesId: row.seriesId, classId: row.classId});
-          });
-        }
-        return map;
-      });
-  }
-  return _fundTickerMapPromise;
-}
-
-function pad10(cik){ return String(cik).padStart(10,'0'); }
-
-async function getLatestNportFiling(cik){
-  const key = String(cik);
-  if (_secCache.submissions[key]) return _secCache.submissions[key];
-  const res = await fetch(`https://data.sec.gov/submissions/CIK${pad10(cik)}.json`);
-  if (!res.ok) throw new Error('SEC submissions lookup failed: HTTP ' + res.status);
-  const json = await res.json();
-  const recent = json.filings && json.filings.recent;
-  if (!recent) throw new Error('No filing history returned');
-  let found = null;
-  for (let i=0;i<recent.form.length;i++){
-    if (recent.form[i] === 'NPORT-P'){
-      found = { accessionNumber: recent.accessionNumber[i], filingDate: recent.filingDate[i] };
-      break;
-    }
-  }
-  if (!found) throw new Error('No NPORT-P filing found in recent submissions');
-  _secCache.submissions[key] = found;
-  return found;
-}
-
-async function fetchNportHoldings(cik, accessionNumber){
-  const cacheKey = cik + '|' + accessionNumber;
-  if (_secCache.holdings[cacheKey]) return _secCache.holdings[cacheKey];
-  const accNoDashes = accessionNumber.replace(/-/g, '');
-  const url = `https://www.sec.gov/Archives/edgar/data/${Number(cik)}/${accNoDashes}/primary_doc.xml`;
-  const res = await fetch(url);
-  if (!res.ok) throw new Error('Could not fetch N-PORT filing: HTTP ' + res.status);
-  const xmlText = await res.text();
-  const doc = new DOMParser().parseFromString(xmlText, 'text/xml');
-  if (doc.querySelector('parsererror')) throw new Error('Could not parse N-PORT XML');
-  const nodes = doc.getElementsByTagName('invstOrSec');
-  const holdings = [];
-  for (let i=0;i<nodes.length;i++){
-    const n = nodes[i];
-    const get = tag => { const el = n.getElementsByTagName(tag)[0]; return el ? el.textContent.trim() : ''; };
-    const cusip = get('cusip');
-    const name = get('name') || get('title');
-    const pctVal = parseFloat(get('pctVal')) || 0;
-    if (name && pctVal > 0) holdings.push({ key: cusip && cusip !== 'N/A' ? cusip : name.toUpperCase(), name, pct: pctVal });
-  }
-  if (!holdings.length) throw new Error('N-PORT filing parsed but no holdings found');
-  _secCache.holdings[cacheKey] = holdings;
-  return holdings;
-}
-
-function computeHoldingsOverlap(holdingsA, holdingsB){
-  const mapB = new Map(holdingsB.map(h => [h.key, h.pct]));
-  let overlap = 0, shared = 0;
-  holdingsA.forEach(h => {
-    const pctB = mapB.get(h.key);
-    if (pctB !== undefined){ overlap += Math.min(h.pct, pctB); shared++; }
-  });
-  return { overlapPct: overlap, sharedCount: shared };
-}
-
-async function tryLiveOverlap(symbolA, symbolB){
-  const map = await loadFundTickerMap();
-  const fa = map.get(symbolA.toUpperCase());
-  const fb = map.get(symbolB.toUpperCase());
-  if (!fa) throw new Error(`${symbolA} isn't in the SEC's fund registry — likely not a US-registered fund`);
-  if (!fb) throw new Error(`${symbolB} isn't in the SEC's fund registry — likely not a US-registered fund`);
-  const [filingA, filingB] = await Promise.all([getLatestNportFiling(fa.cik), getLatestNportFiling(fb.cik)]);
-  const [holdingsA, holdingsB] = await Promise.all([
-    fetchNportHoldings(fa.cik, filingA.accessionNumber),
-    fetchNportHoldings(fb.cik, filingB.accessionNumber)
-  ]);
-  const { overlapPct, sharedCount } = computeHoldingsOverlap(holdingsA, holdingsB);
-  return { overlapPct, sharedCount, asOfA: filingA.filingDate, asOfB: filingB.filingDate };
-}
-
 /* ============================= LIVE ALPHA VANTAGE LOOKUP =============================
-   Complements the SEC EDGAR path above: Alpha Vantage's free tier documents an OVERVIEW
-   function (sector/industry/country for stocks) and an ETF_PROFILE function (sector
-   weights + holdings for ETFs) that, unlike SEC EDGAR, are not limited to US-registered
-   funds — Alpha Vantage lists Canadian (TSX/TSXV) coverage for price data using a ".TRT"
-   / ".TRV" exchange suffix (e.g. SHOP.TRT).
+   Alpha Vantage's free tier documents an OVERVIEW function (sector/industry/country for
+   stocks) and an ETF_PROFILE function (sector weights + full holdings for ETFs) that,
+   unlike SEC EDGAR, are not limited to US-registered funds — Alpha Vantage lists Canadian
+   (TSX/TSXV) coverage for price data using a ".TRT" / ".TRV" exchange suffix (e.g. SHOP.TRT).
 
    Two real unknowns, unverified from this environment (no network access to
    alphavantage.co here, and the claude.ai preview blocks the request entirely):
@@ -824,15 +707,15 @@ async function tryLiveOverlap(symbolA, symbolB){
       Canadian-domiciled ETFs — fundamentals coverage is often narrower than price coverage.
    2) The exact exchange-suffix convention Wealthsimple's plain TSX tickers (no suffix,
       e.g. "AP.UN", "TA") need — this tries the symbol as-is first, then a ".TRT" variant.
-   The free tier is also very limited (25 requests/day total), so successful lookups are
-   cached permanently via saveOverride() and never re-fetched.
+   The free tier is also very limited (25 requests/day total), so every successful
+   ETF_PROFILE response is cached permanently (localStorage) and reused for BOTH
+   classification and overlap checks, rather than fetched twice.
 ============================================================================================ */
 
 function friendlyFetchError(err){
   // A CORS block makes fetch() reject with a generic TypeError that says
   // "Failed to fetch" (Chrome) or "NetworkError" (Firefox) — it never reaches
-  // the server, so there's no HTTP status or JSON to inspect. This is the
-  // exact failure mode confirmed for SEC EDGAR's static JSON files.
+  // the server, so there's no HTTP status or JSON to inspect.
   if (err instanceof TypeError || /failed to fetch|networkerror|load failed/i.test(err.message || '')){
     return "blocked by the site's CORS policy — this data source doesn't allow direct browser requests from another domain, so it can't work from a plain static page";
   }
@@ -885,34 +768,57 @@ function mapAvCountry(raw){
   return 'International Developed';
 }
 
+// Permanent cache of raw ETF_PROFILE responses, keyed by the ORIGINAL symbol (not the
+// resolved candidate), so classification and overlap checks both reuse one API call.
+function getAvProfileCache(){
+  try { return JSON.parse(localStorage.getItem('ledgerline_av_profile_cache') || '{}'); } catch(e){ return {}; }
+}
+function saveAvProfileCache(cache){
+  try { localStorage.setItem('ledgerline_av_profile_cache', JSON.stringify(cache)); } catch(e){}
+}
+
+async function getAvEtfProfile(symbol, apiKey){
+  const cache = getAvProfileCache();
+  if (cache[symbol]) return cache[symbol];
+  let lastErr = null;
+  for (const candidate of avSymbolCandidates(symbol)){
+    try {
+      const json = await fetchAv({ function: 'ETF_PROFILE', symbol: candidate }, apiKey);
+      if (!json.sectors && !json.holdings) throw new Error('No ETF profile data returned for this symbol');
+      cache[symbol] = json;
+      saveAvProfileCache(cache);
+      return json;
+    } catch(err){ lastErr = err; }
+  }
+  throw lastErr || new Error('Not found');
+}
+
 async function tryAlphaVantageClassify(symbol, secType){
   const apiKey = getAvKey();
   if (!apiKey) throw new Error('No Alpha Vantage key set — add one in the sidebar first');
   const isEtf = secType === 'EXCHANGE_TRADED_FUND';
-  const candidates = avSymbolCandidates(symbol);
-  let lastErr = null;
 
-  for (const candidate of candidates){
-    try {
-      if (isEtf){
-        const json = await fetchAv({ function: 'ETF_PROFILE', symbol: candidate }, apiKey);
-        if (!json.sectors && !json.holdings) throw new Error('No ETF profile data returned for this symbol');
-        const sectors = {};
-        (json.sectors || []).forEach(s => {
-          const mapped = mapAvSector(s.sector);
-          const w = parseFloat(s.weight) || 0;
-          sectors[mapped] = (sectors[mapped] || 0) + w;
-        });
-        const entry = {
-          assetClass: 'ETF',
-          mer: json.net_expense_ratio ? parseFloat(json.net_expense_ratio) * 100 : undefined,
-          sectors: Object.keys(sectors).length ? sectors : {'Other':1},
-          geo: {'Global/Multi-Region':1}, // AV's ETF_PROFILE doesn't return geography breakdown
-          category: 'Alpha Vantage lookup (' + candidate + ')'
-        };
-        saveOverride(symbol, entry);
-        return entry;
-      } else {
+  if (isEtf){
+    const json = await getAvEtfProfile(symbol, apiKey);
+    const sectors = {};
+    (json.sectors || []).forEach(s => {
+      const mapped = mapAvSector(s.sector);
+      const w = parseFloat(s.weight) || 0;
+      sectors[mapped] = (sectors[mapped] || 0) + w;
+    });
+    const entry = {
+      assetClass: 'ETF',
+      mer: json.net_expense_ratio ? parseFloat(json.net_expense_ratio) * 100 : undefined,
+      sectors: Object.keys(sectors).length ? sectors : {'Other':1},
+      geo: {'Global/Multi-Region':1}, // AV's ETF_PROFILE doesn't return geography breakdown
+      category: 'Alpha Vantage lookup'
+    };
+    saveOverride(symbol, entry);
+    return entry;
+  } else {
+    let lastErr = null;
+    for (const candidate of avSymbolCandidates(symbol)){
+      try {
         const json = await fetchAv({ function: 'OVERVIEW', symbol: candidate }, apiKey);
         if (!json.Sector && !json.Name) throw new Error('No company overview data returned for this symbol');
         const entry = {
@@ -922,10 +828,35 @@ async function tryAlphaVantageClassify(symbol, secType){
         };
         saveOverride(symbol, entry);
         return entry;
-      }
-    } catch(err){ lastErr = err; }
+      } catch(err){ lastErr = err; }
+    }
+    throw lastErr || new Error('Not found');
   }
-  throw lastErr || new Error('Not found');
+}
+
+// Real holdings-level overlap between two ETFs, using Alpha Vantage's ETF_PROFILE
+// holdings array for each (cached — see getAvEtfProfile). Weight fields are decimal
+// fractions (e.g. 0.0868 = 8.68%), matching what Alpha Vantage documents.
+async function tryAlphaVantageOverlap(symbolA, symbolB){
+  const apiKey = getAvKey();
+  if (!apiKey) throw new Error('No Alpha Vantage key set — add one in the sidebar first');
+  const [profileA, profileB] = await Promise.all([
+    getAvEtfProfile(symbolA, apiKey),
+    getAvEtfProfile(symbolB, apiKey)
+  ]);
+  const holdingsA = profileA.holdings || [];
+  const holdingsB = profileB.holdings || [];
+  if (!holdingsA.length || !holdingsB.length) throw new Error("one or both ETFs didn't return a holdings list");
+
+  const mapB = new Map(holdingsB.map(h => [(h.ticker || h.description || '').toUpperCase(), parseFloat(h.weight) || 0]));
+  let overlap = 0, shared = 0;
+  holdingsA.forEach(h => {
+    const key = (h.ticker || h.description || '').toUpperCase();
+    if (!key) return;
+    const wB = mapB.get(key);
+    if (wB !== undefined){ overlap += Math.min(parseFloat(h.weight) || 0, wB); shared++; }
+  });
+  return { overlapPct: overlap * 100, sharedCount: shared };
 }
 
 /* ============================= RENDERING ============================= */
@@ -1003,7 +934,7 @@ function renderOverview(a){
     <h2>What stands out</h2>
     <p class="sub">Educational observations — not personalized investment advice.</p>
     <div class="flag-list">
-      ${flags.length ? flags.map(f => `<div class="flag ${f.warn?'warn':''}"><div class="dot"></div><div>${f.html}</div></div>`).join('') : '<div class="flag"><div class="dot"></div><div>No notable flags with the current classification data.</div></div>'}
+      ${flags.length ? flags.map(f => `<div class="flag ${f.warn?'warn':''}">${f.html}</div>`).join('') : '<div class="flag">No notable flags with the current classification data.</div>'}
     </div>
   </div>`;
 }
@@ -1024,7 +955,7 @@ function renderSectors(a){
     <h2>Filling the gaps</h2>
     <p class="sub">Sectors where this portfolio has little to no exposure, with a couple of well-known ETFs that focus there — for your own research, not a personalized recommendation.</p>
     <div class="flag-list">
-      ${gapSectors.map(s => `<div class="flag"><div class="dot"></div><div><b>${esc(s)}</b> — ${SECTOR_ETF_IDEAS[s].map(i => `${esc(i.s)} (${esc(i.n)})`).join(', ')}</div></div>`).join('')}
+      ${gapSectors.map(s => `<div class="flag"><b>${esc(s)}</b> — ${SECTOR_ETF_IDEAS[s].map(i => `${esc(i.s)} (${esc(i.n)})`).join(', ')}</div>`).join('')}
     </div>
   </div>` : ''}`;
 }
@@ -1062,17 +993,14 @@ function renderConcentration(a){
     <p class="sub">ETFs grouped by the role they play (e.g. "Canadian broad equity"). Holding more than one in the same group often means duplicated underlying exposure.</p>
     ${a.overlapGroups.length ? a.overlapGroups.map((g,i) => `
       <div class="flag">
-        <div class="dot"></div>
-        <div>
-          <b>${esc(g.category)}</b> — ${g.symbols.map(esc).join(', ')} · combined ${pct(g.weight)} of the portfolio
+        <b>${esc(g.category)}</b> — ${g.symbols.map(esc).join(', ')} · combined ${pct(g.weight)} of the portfolio
           ${g.symbols.length >= 2 ? `<div style="margin-top:6px;">
-            <button class="btn-tiny sec-lookup-btn" data-a="${esc(g.symbols[0])}" data-b="${esc(g.symbols[1])}" data-target="sec-result-${i}">Check live overlap (SEC EDGAR)</button>
-            <span id="sec-result-${i}" style="font-size:12.5px; color:var(--color-ink-faint); margin-left:6px;"></span>
+            <button class="btn-tiny av-overlap-btn" data-a="${esc(g.symbols[0])}" data-b="${esc(g.symbols[1])}" data-target="av-overlap-result-${i}">Check live overlap (Alpha Vantage)</button>
+            <span id="av-overlap-result-${i}" style="font-size:12.5px; color:var(--color-ink-faint); margin-left:6px;"></span>
           </div>` : ''}
-        </div>
       </div>
     `).join('') : '<p class="sub">No overlapping fund categories detected.</p>'}
-    <p class="sub" style="margin-top:14px;">Confirmed: SEC EDGAR's fund-ticker file blocks direct browser requests from other domains (CORS), so this button will report that rather than a real overlap number — it isn't fixable by hosting choice, since SEC's server never sends the permission header browsers require. Canadian-domiciled ETFs (most of what shows up here) also aren't in the SEC's system regardless. The category grouping above remains the best available signal for now.</p>
+    <p class="sub" style="margin-top:14px;">Needs your Alpha Vantage key (sidebar) and only runs once this page is hosted outside the claude.ai preview — the preview's sandbox blocks the request regardless of API. Each check spends up to 2 of your 25 daily lookups, cached afterward so it's a one-time cost per fund.</p>
   </div>`;
 }
 
@@ -1127,7 +1055,9 @@ function classifiedTag(r){
   const sectors = Object.keys(r.cls.sectors||{});
   const geo = Object.keys(r.cls.geo||{});
   return `<span class="tag">${esc(r.cls.assetClass)}</span> ${esc(sectors[0]||'')}${sectors.length>1?' +':''} · ${esc(geo[0]||'')}${geo.length>1?' +':''}
-    <a class="edit-link" data-edit="${esc(r.symbol)}">edit</a>`;
+    <a class="edit-link" data-edit="${esc(r.symbol)}">edit</a>
+    <button class="btn-tiny av-lookup-btn" data-symbol="${esc(r.symbol)}" data-sectype="${esc(r.secType||'')}" style="margin-left:6px; font-size:11px; padding:2px 7px;">Refresh via Alpha Vantage</button>
+    <span class="av-result" data-for="${esc(r.symbol)}" style="font-size:12px; color:var(--color-ink-faint); margin-left:4px;"></span>`;
 }
 
 function unclassifiedForm(symbol, secType){
@@ -1177,15 +1107,15 @@ function attachDynamicHandlers(a){
       }
     };
   });
-  document.querySelectorAll('.sec-lookup-btn').forEach(btn => {
+  document.querySelectorAll('.av-overlap-btn').forEach(btn => {
     btn.onclick = async () => {
       const symA = btn.dataset.a, symB = btn.dataset.b;
       const target = document.getElementById(btn.dataset.target);
       btn.disabled = true;
-      target.textContent = 'Checking SEC EDGAR…';
+      target.textContent = 'Checking Alpha Vantage…';
       try {
-        const result = await tryLiveOverlap(symA, symB);
-        target.textContent = `Measured: ${symA} and ${symB} share ${pct(result.overlapPct/100)} of net assets by weight (${result.sharedCount} common holdings, per most recent N-PORT filings).`;
+        const result = await tryAlphaVantageOverlap(symA, symB);
+        target.textContent = `Measured: ${symA} and ${symB} share ${pct(result.overlapPct/100)} of net assets by weight (${result.sharedCount} common holdings).`;
       } catch(err){
         target.textContent = `Couldn't measure directly — ${friendlyFetchError(err)}.`;
       }
