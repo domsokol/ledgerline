@@ -736,15 +736,49 @@ function avSymbolCandidates(symbol){
   return [...new Set(candidates)];
 }
 
-async function fetchAv(params, apiKey){
+async function fetchAvRaw(params, apiKey){
   const url = 'https://www.alphavantage.co/query?' + new URLSearchParams({...params, apikey: apiKey}).toString();
   const res = await fetch(url);
   if (!res.ok) throw new Error('HTTP ' + res.status);
   const json = await res.json();
-  if (json['Note']) throw new Error('Rate limit reached (25/day on the free tier) — try again tomorrow');
-  if (json['Information']) throw new Error(json['Information']);
+  if (json['Note']) throw new Error('Daily quota reached (25/day on the free tier) — try again tomorrow');
+  if (json['Information']){
+    const isDailyLimit = /per day/i.test(json['Information']);
+    throw new Error(isDailyLimit
+      ? 'Daily quota reached (25/day on the free tier) — try again tomorrow'
+      : json['Information']);
+  }
   if (json['Error Message']) throw new Error('Symbol not recognized');
   return json;
+}
+
+// Alpha Vantage's free tier wants requests spaced at least 1 request/second — burst two
+// calls together (like fetching both funds for an overlap check) and it returns a soft
+// "please slow down" response instead of data. This queue serializes every call app-wide
+// and spaces them out, with one automatic retry if a burst warning slips through anyway.
+let _avQueueTail = Promise.resolve();
+let _avLastCallAt = 0;
+const AV_MIN_GAP_MS = 1200;
+
+function fetchAv(params, apiKey){
+  const run = async () => {
+    const wait = Math.max(0, _avLastCallAt + AV_MIN_GAP_MS - Date.now());
+    if (wait > 0) await new Promise(r => setTimeout(r, wait));
+    _avLastCallAt = Date.now();
+    try {
+      return await fetchAvRaw(params, apiKey);
+    } catch(err){
+      if (/per second|spreading out/i.test(err.message || '')){
+        await new Promise(r => setTimeout(r, 2000));
+        _avLastCallAt = Date.now();
+        return await fetchAvRaw(params, apiKey);
+      }
+      throw err;
+    }
+  };
+  const p = _avQueueTail.then(run, run);
+  _avQueueTail = p.catch(() => {});
+  return p;
 }
 
 const AV_SECTOR_MAP = {
