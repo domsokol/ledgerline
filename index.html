@@ -696,17 +696,18 @@ function barRow(label, valueFrac, benchFrac){
 }
 
 /* ============================= LIVE SEC EDGAR OVERLAP LOOKUP =============================
-   Uses SEC EDGAR's free, keyless public data (data.sec.gov / www.sec.gov) to pull the actual
-   holdings of a fund from its most recent Form N-PORT filing. This only works for funds that
-   are REGISTERED WITH THE US SEC — most US-listed ETFs (e.g. SCHD, IGM here), but NOT
-   Canadian-domiciled ETFs (XEQT, VCN, VFV-the-Canadian-one, etc), which file with Canadian
-   regulators instead and have no equivalent free machine-readable source. For those, this
-   falls back to the sector-category grouping already computed above.
+   CONFIRMED NON-FUNCTIONAL as a plain client-side call: SEC's www.sec.gov/files/*.json
+   endpoint doesn't send an Access-Control-Allow-Origin header, so browsers block any page
+   not served from sec.gov itself from reading the response (a CORS block, verified against
+   a live GitHub Pages deployment — this is not a hosting-location problem, it can't be fixed
+   by hosting this file anywhere else). The code below is left in place — it's correct logic
+   and would work from a server-side proxy — but expect every call to fail with a CORS error
+   until this app has a small backend in front of it. Kept for that future step; the
+   sector-category grouping above is the working substitute in the meantime.
 
-   Note: this reaches out to sec.gov, which is blocked by the claude.ai artifact preview's
-   sandbox — it will only work once this file is hosted elsewhere (GitHub Pages, local file,
-   your own server). It also couldn't be end-to-end tested against live SEC data from the
-   environment this was built in, so treat it as a first pass to verify once deployed.
+   Also worth noting even if CORS weren't a problem: this only ever covers funds REGISTERED
+   WITH THE US SEC — most US-listed ETFs (e.g. SCHD, IGM here), but NOT Canadian-domiciled
+   ETFs (XEQT, VCN, VFV-the-Canadian-one, etc), which file with Canadian regulators instead.
 ============================================================================================ */
 
 let _fundTickerMapPromise = null;
@@ -826,6 +827,17 @@ async function tryLiveOverlap(symbolA, symbolB){
    The free tier is also very limited (25 requests/day total), so successful lookups are
    cached permanently via saveOverride() and never re-fetched.
 ============================================================================================ */
+
+function friendlyFetchError(err){
+  // A CORS block makes fetch() reject with a generic TypeError that says
+  // "Failed to fetch" (Chrome) or "NetworkError" (Firefox) — it never reaches
+  // the server, so there's no HTTP status or JSON to inspect. This is the
+  // exact failure mode confirmed for SEC EDGAR's static JSON files.
+  if (err instanceof TypeError || /failed to fetch|networkerror|load failed/i.test(err.message || '')){
+    return "blocked by the site's CORS policy — this data source doesn't allow direct browser requests from another domain, so it can't work from a plain static page";
+  }
+  return err.message;
+}
 
 function getAvKey(){
   try { return localStorage.getItem('ledgerline_av_key') || ''; } catch(e){ return ''; }
@@ -1060,7 +1072,7 @@ function renderConcentration(a){
         </div>
       </div>
     `).join('') : '<p class="sub">No overlapping fund categories detected.</p>'}
-    <p class="sub" style="margin-top:14px;">Live lookup only works for US SEC-registered funds, and only once this page is running outside the claude.ai preview (e.g. on GitHub Pages) — the preview's sandbox blocks the request. Canadian-domiciled ETFs (most of what shows up here) aren't in the SEC's system, so the category grouping above is the best available signal for those.</p>
+    <p class="sub" style="margin-top:14px;">Confirmed: SEC EDGAR's fund-ticker file blocks direct browser requests from other domains (CORS), so this button will report that rather than a real overlap number — it isn't fixable by hosting choice, since SEC's server never sends the permission header browsers require. Canadian-domiciled ETFs (most of what shows up here) also aren't in the SEC's system regardless. The category grouping above remains the best available signal for now.</p>
   </div>`;
 }
 
@@ -1160,7 +1172,7 @@ function attachDynamicHandlers(a){
         target.textContent = 'Found it — classified.';
         render();
       } catch(err){
-        target.textContent = `No luck — ${err.message}.`;
+        target.textContent = `No luck — ${friendlyFetchError(err)}.`;
         btn.disabled = false;
       }
     };
@@ -1175,7 +1187,7 @@ function attachDynamicHandlers(a){
         const result = await tryLiveOverlap(symA, symB);
         target.textContent = `Measured: ${symA} and ${symB} share ${pct(result.overlapPct/100)} of net assets by weight (${result.sharedCount} common holdings, per most recent N-PORT filings).`;
       } catch(err){
-        target.textContent = `Couldn't measure directly — ${err.message}.`;
+        target.textContent = `Couldn't measure directly — ${friendlyFetchError(err)}.`;
       }
       btn.disabled = false;
     };
