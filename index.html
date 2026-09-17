@@ -1,0 +1,1236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ledgerline — Portfolio Composition Review</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --color-paper: #EFF1EA;
+    --color-paper-raised: #F8F9F4;
+    --color-ink: #1B2321;
+    --color-ink-soft: #56635B;
+    --color-ink-faint: #838F86;
+    --color-border: #D7DBD2;
+    --color-accent: #2F6F5E;
+    --color-accent-soft: #DCEAE4;
+    --color-warn: #B4622B;
+    --color-warn-soft: #F3E1D2;
+    --color-negative: #A8412E;
+    --font-display: 'Fraunces', Georgia, 'Times New Roman', serif;
+    --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --font-mono: 'IBM Plex Mono', 'SF Mono', Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --color-paper: #14181A;
+      --color-paper-raised: #1C2220;
+      --color-ink: #EDEFE9;
+      --color-ink-soft: #A9B3AA;
+      --color-ink-faint: #71796F;
+      --color-border: #2C332E;
+      --color-accent: #74C1A2;
+      --color-accent-soft: #20342C;
+      --color-warn: #E0904F;
+      --color-warn-soft: #3A2A1C;
+      --color-negative: #D9705C;
+    }
+  }
+  :root[data-theme="dark"] {
+    --color-paper: #14181A;
+    --color-paper-raised: #1C2220;
+    --color-ink: #EDEFE9;
+    --color-ink-soft: #A9B3AA;
+    --color-ink-faint: #71796F;
+    --color-border: #2C332E;
+    --color-accent: #74C1A2;
+    --color-accent-soft: #20342C;
+    --color-warn: #E0904F;
+    --color-warn-soft: #3A2A1C;
+    --color-negative: #D9705C;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--color-paper);
+    color: var(--color-ink);
+    font-family: var(--font-body);
+    font-size: 15px;
+    line-height: 1.5;
+  }
+  .app { display: grid; grid-template-columns: 232px 1fr; min-height: 100vh; }
+
+  /* Sidebar */
+  .sidebar {
+    border-right: 1px solid var(--color-border);
+    padding: 28px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+  }
+  .wordmark { display: flex; flex-direction: column; gap: 2px; }
+  .wordmark .name {
+    font-family: var(--font-display);
+    font-size: 22px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+  .wordmark .tag { font-size: 12px; color: var(--color-ink-faint); }
+
+  nav.tabs { display: flex; flex-direction: column; gap: 2px; }
+  .tab-btn {
+    text-align: left;
+    background: none;
+    border: none;
+    font-family: var(--font-body);
+    font-size: 14.5px;
+    color: var(--color-ink-soft);
+    padding: 9px 10px;
+    border-radius: 5px;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .tab-btn:hover { background: var(--color-paper-raised); color: var(--color-ink); }
+  .tab-btn.active { background: var(--color-accent-soft); color: var(--color-accent); font-weight: 600; }
+  .tab-btn .count {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--color-ink-faint);
+  }
+  .tab-btn.active .count { color: var(--color-accent); }
+
+  .sidebar-section { display: flex; flex-direction: column; gap: 8px; }
+  .sidebar-label { font-size: 11.5px; color: var(--color-ink-faint); text-transform: none; }
+  select.account-filter {
+    width: 100%;
+    font-family: var(--font-body);
+    font-size: 13.5px;
+    padding: 7px 8px;
+    border-radius: 5px;
+    border: 1px solid var(--color-border);
+    background: var(--color-paper-raised);
+    color: var(--color-ink);
+  }
+  .sidebar-btn {
+    font-family: var(--font-body);
+    font-size: 13px;
+    text-align: left;
+    background: none;
+    border: none;
+    color: var(--color-ink-faint);
+    cursor: pointer;
+    padding: 2px 0;
+  }
+  .sidebar-btn:hover { color: var(--color-negative); }
+
+  /* Main */
+  main { padding: 34px 40px 60px; max-width: 980px; }
+  .page-head { margin-bottom: 26px; }
+  .page-head h1 {
+    font-family: var(--font-display);
+    font-size: 27px;
+    font-weight: 600;
+    margin: 0 0 6px;
+    letter-spacing: -0.01em;
+  }
+  .page-head p { margin: 0; color: var(--color-ink-soft); font-size: 14.5px; max-width: 62ch; }
+
+  /* Upload */
+  .dropzone {
+    border: 1.5px dashed var(--color-border);
+    border-radius: 8px;
+    padding: 36px 24px;
+    text-align: center;
+    background: var(--color-paper-raised);
+    cursor: pointer;
+    transition: border-color .15s ease, background .15s ease;
+  }
+  .dropzone.drag { border-color: var(--color-accent); background: var(--color-accent-soft); }
+  .dropzone h3 { font-family: var(--font-display); font-weight: 600; font-size: 18px; margin: 0 0 6px; }
+  .dropzone p { color: var(--color-ink-soft); font-size: 13.5px; margin: 0 0 14px; }
+  .btn {
+    display: inline-block;
+    font-family: var(--font-body);
+    font-size: 13.5px;
+    font-weight: 600;
+    padding: 8px 16px;
+    border-radius: 6px;
+    border: 1px solid var(--color-accent);
+    background: var(--color-accent);
+    color: var(--color-paper-raised);
+    cursor: pointer;
+  }
+  .btn.secondary { background: none; color: var(--color-accent); }
+  .privacy-note { font-size: 12px; color: var(--color-ink-faint); margin-top: 14px; }
+
+  /* Cards / panels */
+  .panel {
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    background: var(--color-paper-raised);
+    padding: 20px 22px;
+    margin-bottom: 20px;
+  }
+  .panel h2 {
+    font-family: var(--font-display);
+    font-size: 17px;
+    font-weight: 600;
+    margin: 0 0 4px;
+  }
+  .panel .sub { font-size: 13px; color: var(--color-ink-faint); margin: 0 0 16px; }
+
+  .stat-row { display: flex; gap: 28px; flex-wrap: wrap; }
+  .stat { display: flex; flex-direction: column; gap: 3px; }
+  .stat .num { font-family: var(--font-mono); font-size: 22px; }
+  .stat .lbl { font-size: 12.5px; color: var(--color-ink-faint); }
+
+  /* Bars */
+  .bar-row { margin-bottom: 13px; }
+  .bar-row .bar-top { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 4px; }
+  .bar-row .bar-top .name { color: var(--color-ink); }
+  .bar-row .bar-top .val { font-family: var(--font-mono); color: var(--color-ink-soft); font-size: 12.5px; }
+  .bar-track { position: relative; height: 9px; background: var(--color-border); border-radius: 3px; overflow: visible; }
+  .bar-fill { position: absolute; left:0; top:0; bottom:0; background: var(--color-accent); border-radius: 3px; }
+  .bar-bench {
+    position: absolute; top: -3px; bottom: -3px; width: 2px; background: var(--color-ink);
+    opacity: .45;
+  }
+  .legend-line { font-size: 12px; color: var(--color-ink-faint); margin-top: 6px; }
+  .tick { display:inline-block; width:10px; height:2px; background:var(--color-ink); opacity:.45; vertical-align:middle; margin-right:4px; }
+
+  /* Flags / insights */
+  .flag-list { display: flex; flex-direction: column; gap: 10px; }
+  .flag {
+    display: flex; gap: 10px; padding: 11px 13px; border-radius: 6px;
+    background: var(--color-paper); border: 1px solid var(--color-border);
+    font-size: 13.5px; line-height: 1.45;
+  }
+  .flag .dot { flex-shrink:0; width:7px; height:7px; border-radius:50%; margin-top:6px; background: var(--color-accent); }
+  .flag.warn .dot { background: var(--color-warn); }
+  .flag b { font-weight: 600; }
+
+  /* Table */
+  table.data { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  table.data th {
+    text-align: left; font-size: 11.5px; color: var(--color-ink-faint);
+    font-weight: 600; padding: 6px 10px; border-bottom: 1px solid var(--color-border);
+  }
+  table.data td { padding: 8px 10px; border-bottom: 1px solid var(--color-border); vertical-align: top; }
+  table.data tr:last-child td { border-bottom: none; }
+  td.num, th.num { text-align: right; font-family: var(--font-mono); }
+  .ticker { font-family: var(--font-mono); font-weight: 600; }
+  .tag {
+    display: inline-block; font-size: 11px; padding: 2px 7px; border-radius: 10px;
+    background: var(--color-accent-soft); color: var(--color-accent);
+  }
+  .tag.gap { background: var(--color-warn-soft); color: var(--color-warn); }
+
+  select.mini, input.mini {
+    font-family: var(--font-body); font-size: 12.5px; padding: 4px 6px;
+    border-radius: 4px; border: 1px solid var(--color-border); background: var(--color-paper); color: var(--color-ink);
+  }
+  .classify-form { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  .btn-tiny {
+    font-size: 12px; padding: 4px 9px; border-radius: 4px; border: 1px solid var(--color-accent);
+    background: var(--color-accent); color: var(--color-paper-raised); cursor: pointer;
+  }
+
+  .empty { text-align: center; padding: 60px 20px; color: var(--color-ink-faint); }
+  .empty h2 { font-family: var(--font-display); color: var(--color-ink); font-size: 20px; }
+
+  a.edit-link { font-size: 11.5px; color: var(--color-ink-faint); cursor: pointer; text-decoration: underline; margin-left: 6px; }
+
+  @media (max-width: 760px) {
+    .app { grid-template-columns: 1fr; }
+    .sidebar {
+      flex-direction: row; align-items: center; overflow-x: auto; padding: 14px 16px; gap: 18px;
+      border-right: none; border-bottom: 1px solid var(--color-border);
+    }
+    nav.tabs { flex-direction: row; }
+    .sidebar-section { min-width: 140px; }
+    main { padding: 22px 16px 50px; }
+    .stat-row { gap: 18px; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="wordmark">
+      <div class="name">Ledgerline</div>
+      <div class="tag">Holdings composition review</div>
+    </div>
+    <nav class="tabs" id="tabNav"></nav>
+    <div class="sidebar-section">
+      <div class="sidebar-label">Account</div>
+      <select class="account-filter" id="accountFilter"></select>
+    </div>
+    <div class="sidebar-section">
+      <button class="sidebar-btn" id="addMoreBtn">+ Add another statement</button>
+      <button class="sidebar-btn" id="clearDataBtn">Clear uploaded data</button>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-label">Alpha Vantage key (optional)</div>
+      <input class="account-filter" id="avKeyInput" type="password" placeholder="Paste your free key" style="font-family: var(--font-mono); font-size: 12px;">
+      <div class="privacy-note" style="margin-top:0;">Stored only in your browser. Used to look up sector/holdings data live for unclassified holdings — 25 lookups/day on the free tier.</div>
+    </div>
+  </aside>
+
+  <main id="main"></main>
+</div>
+
+<input type="file" id="fileInput" accept=".csv" multiple style="display:none">
+
+<script>
+/* ============================= REFERENCE DATA ============================= */
+
+const SECTOR_LIST = ['Technology','Financials','Healthcare','Energy','Industrials','Consumer Discretionary',
+  'Consumer Staples','Utilities','Materials','Real Estate','Communication Services','Fixed Income',
+  'Crypto','Cash & Equivalents','Other'];
+
+const GEO_LIST = ['Canada','United States','International Developed','Emerging Markets','Global/Multi-Region','Cash & Other'];
+
+// Illustrative broad global-equity-market reference weights, for comparison only.
+const BENCHMARK_SECTORS = {
+  'Technology':.22,'Financials':.16,'Healthcare':.11,'Energy':.05,'Industrials':.11,
+  'Consumer Discretionary':.11,'Consumer Staples':.07,'Utilities':.03,'Materials':.04,
+  'Real Estate':.02,'Communication Services':.07,'Fixed Income':0,'Crypto':0,
+  'Cash & Equivalents':.01,'Other':0
+};
+const BENCHMARK_GEO = {
+  'Canada':.03,'United States':.62,'International Developed':.24,'Emerging Markets':.10,
+  'Global/Multi-Region':0,'Cash & Other':.01
+};
+
+// A few well-known, low-cost ETFs commonly used for exposure to each sector — illustrative
+// examples for your own research, not a personalized recommendation.
+const SECTOR_ETF_IDEAS = {
+  'Technology':          [{s:'XLK',  n:'Technology Select Sector SPDR (US)'}, {s:'XIT.TO', n:'iShares S&P/TSX Capped Info Tech (CA)'}],
+  'Financials':          [{s:'XLF',  n:'Financial Select Sector SPDR (US)'},  {s:'ZEB.TO', n:'BMO Equal Weight Banks (CA)'}],
+  'Healthcare':          [{s:'XLV',  n:'Health Care Select Sector SPDR (US)'},{s:'XHC.TO', n:'iShares S&P/TSX Capped Health Care (CA)'}],
+  'Energy':              [{s:'XLE',  n:'Energy Select Sector SPDR (US)'},     {s:'XEG.TO', n:'iShares S&P/TSX Capped Energy (CA)'}],
+  'Industrials':         [{s:'XLI',  n:'Industrial Select Sector SPDR (US)'}],
+  'Consumer Discretionary':[{s:'XLY', n:'Consumer Discretionary Select Sector SPDR (US)'}],
+  'Consumer Staples':    [{s:'XLP',  n:'Consumer Staples Select Sector SPDR (US)'}],
+  'Utilities':           [{s:'XLU',  n:'Utilities Select Sector SPDR (US)'},  {s:'ZUT.TO', n:'BMO Equal Weight Utilities (CA)'}],
+  'Materials':           [{s:'XLB',  n:'Materials Select Sector SPDR (US)'},  {s:'XMA.TO', n:'iShares S&P/TSX Capped Materials (CA)'}],
+  'Real Estate':         [{s:'XLRE', n:'Real Estate Select Sector SPDR (US)'},{s:'XRE.TO', n:'iShares S&P/TSX Capped REIT (CA)'}],
+  'Communication Services':[{s:'XLC', n:'Communication Services Select Sector SPDR (US)'}],
+};
+
+function eq(sector, geo){ return {sectors:{[sector]:1}, geo:{[geo]:1}}; }
+
+// Security lookup DB. sectors/geo fractions should sum to ~1. mer in % (annual), for funds only.
+const SECURITY_DB = {
+  // --- Individual stocks / REITs ---
+  'AP.UN':  {assetClass:'Stock', ...eq('Real Estate','Canada')},
+  'CNQ.TO': {assetClass:'Stock', ...eq('Energy','Canada')},
+  'ENB.TO': {assetClass:'Stock', ...eq('Energy','Canada')},
+  'GRZ':    {assetClass:'Stock', ...eq('Materials','Canada')},
+  'LIF':    {assetClass:'Stock', ...eq('Materials','Canada')},
+  'NPI':    {assetClass:'Stock', ...eq('Utilities','Canada')},
+  'OPEN':   {assetClass:'Stock', ...eq('Real Estate','United States')},
+  'PXT':    {assetClass:'Stock', ...eq('Energy','Canada')},
+  'SRU.UN': {assetClass:'Stock', ...eq('Real Estate','Canada')},
+  'TA':     {assetClass:'Stock', ...eq('Utilities','Canada')},
+  'AMZN':   {assetClass:'Stock', ...eq('Consumer Discretionary','United States')},
+  'APTX':   {assetClass:'Stock', ...eq('Healthcare','Canada')},
+  'BIP.UN': {assetClass:'Stock', ...eq('Utilities','Canada')},
+  'BNS.TO': {assetClass:'Stock', ...eq('Financials','Canada')},
+  'BRE':    {assetClass:'Stock', ...eq('Real Estate','Canada')},
+  'CADY':   {assetClass:'Stock', ...eq('Materials','Canada')},
+  'CSU':    {assetClass:'Stock', ...eq('Technology','Canada')},
+  'DIR.UN': {assetClass:'Stock', ...eq('Real Estate','Canada')},
+  'EXE':    {assetClass:'Stock', ...eq('Healthcare','Canada')},
+  'FC':     {assetClass:'Stock', ...eq('Financials','Canada')},
+  'FRU':    {assetClass:'Stock', ...eq('Energy','Canada')},
+  'FSZ':    {assetClass:'Stock', ...eq('Financials','Canada')},
+  'GFL.TO': {assetClass:'Stock', ...eq('Industrials','Canada')},
+  'GRT.UN': {assetClass:'Stock', ...eq('Real Estate','Canada')},
+  'HSY':    {assetClass:'Stock', ...eq('Consumer Staples','United States')},
+  'MFC.TO': {assetClass:'Stock', ...eq('Financials','Canada')},
+  'NVDA':   {assetClass:'Stock', ...eq('Technology','United States')},
+  'REI.UN': {assetClass:'Stock', ...eq('Real Estate','Canada')},
+  'SPCX':   {assetClass:'Stock', ...eq('Industrials','United States')},
+  'T':      {assetClass:'Stock', ...eq('Communication Services','Canada')},
+  'TECK.B': {assetClass:'Stock', ...eq('Materials','Canada')},
+  'VITL.UN':{assetClass:'Stock', ...eq('Real Estate','Canada')},
+  'WCP':    {assetClass:'Stock', ...eq('Energy','Canada')},
+
+  // --- Cash / commodity ---
+  'CAD':  {assetClass:'Cash', ...eq('Cash & Equivalents','Canada')},
+  'USD':  {assetClass:'Cash', ...eq('Cash & Equivalents','Cash & Other')},
+  'GOLD': {assetClass:'Commodity', ...eq('Other','Global/Multi-Region')},
+
+  // --- ETFs ---
+  'SCHD': {assetClass:'ETF', mer:0.06, category:'US Dividend Equity', geo:{'United States':1},
+    sectors:{'Financials':.15,'Industrials':.15,'Healthcare':.15,'Consumer Staples':.15,'Technology':.10,
+      'Energy':.08,'Consumer Discretionary':.08,'Materials':.06,'Communication Services':.04,'Utilities':.04}},
+  'ZEQT': {assetClass:'ETF', mer:0.20, category:'Global Diversified Equity (100% equity)',
+    geo:{'Canada':.20,'United States':.45,'International Developed':.25,'Emerging Markets':.10},
+    sectors:{'Technology':.22,'Financials':.16,'Healthcare':.10,'Industrials':.11,'Consumer Discretionary':.11,
+      'Consumer Staples':.06,'Energy':.05,'Utilities':.03,'Materials':.04,'Real Estate':.02,'Communication Services':.07,'Other':.03}},
+  'XEQT': {assetClass:'ETF', mer:0.20, category:'Global Diversified Equity (100% equity)',
+    geo:{'Canada':.20,'United States':.45,'International Developed':.25,'Emerging Markets':.10},
+    sectors:{'Technology':.22,'Financials':.16,'Healthcare':.10,'Industrials':.11,'Consumer Discretionary':.11,
+      'Consumer Staples':.06,'Energy':.05,'Utilities':.03,'Materials':.04,'Real Estate':.02,'Communication Services':.07,'Other':.03}},
+  'ZWC': {assetClass:'ETF', mer:0.72, category:'Canadian Dividend / Covered-Call Equity', geo:{'Canada':1},
+    sectors:{'Financials':.35,'Energy':.20,'Utilities':.10,'Communication Services':.08,'Materials':.06,
+      'Industrials':.06,'Consumer Staples':.05,'Real Estate':.05,'Other':.05}},
+  'EEMV': {assetClass:'ETF', mer:0.25, category:'Emerging Markets Equity', geo:{'Emerging Markets':1},
+    sectors:{'Financials':.25,'Technology':.20,'Consumer Staples':.12,'Communication Services':.10,'Utilities':.08,
+      'Industrials':.08,'Energy':.07,'Materials':.05,'Real Estate':.03,'Healthcare':.02}},
+  'GSWO': {assetClass:'ETF', mer:0.29, category:'Global Low-Volatility Equity',
+    geo:{'United States':.55,'International Developed':.35,'Canada':.05,'Emerging Markets':.05},
+    sectors:{'Financials':.15,'Healthcare':.15,'Consumer Staples':.15,'Utilities':.12,'Industrials':.10,
+      'Technology':.10,'Communication Services':.08,'Real Estate':.05,'Materials':.05,'Consumer Discretionary':.03,'Energy':.02}},
+  'QCN': {assetClass:'ETF', mer:0.19, category:'Canadian Broad Equity', geo:{'Canada':1},
+    sectors:{'Financials':.30,'Energy':.17,'Materials':.11,'Industrials':.13,'Technology':.08,'Consumer Discretionary':.04,
+      'Consumer Staples':.04,'Utilities':.03,'Communication Services':.04,'Real Estate':.03,'Healthcare':.01,'Other':.02}},
+  'VCN': {assetClass:'ETF', mer:0.05, category:'Canadian Broad Equity', geo:{'Canada':1},
+    sectors:{'Financials':.30,'Energy':.17,'Materials':.11,'Industrials':.13,'Technology':.08,'Consumer Discretionary':.04,
+      'Consumer Staples':.04,'Utilities':.03,'Communication Services':.04,'Real Estate':.03,'Healthcare':.01,'Other':.02}},
+  'QUU': {assetClass:'ETF', mer:0.19, category:'US Large-Cap Equity', geo:{'United States':1},
+    sectors:{'Technology':.32,'Financials':.13,'Healthcare':.11,'Consumer Discretionary':.10,'Communication Services':.09,
+      'Industrials':.08,'Consumer Staples':.06,'Energy':.04,'Utilities':.02,'Materials':.02,'Real Estate':.02,'Other':.01}},
+  'VFV': {assetClass:'ETF', mer:0.09, category:'US Large-Cap Equity', geo:{'United States':1},
+    sectors:{'Technology':.32,'Financials':.13,'Healthcare':.11,'Consumer Discretionary':.10,'Communication Services':.09,
+      'Industrials':.08,'Consumer Staples':.06,'Energy':.04,'Utilities':.02,'Materials':.02,'Real Estate':.02,'Other':.01}},
+  'ZEA': {assetClass:'ETF', mer:0.22, category:'International Developed Equity', geo:{'International Developed':1},
+    sectors:{'Financials':.20,'Industrials':.16,'Healthcare':.12,'Consumer Discretionary':.11,'Consumer Staples':.09,
+      'Technology':.08,'Materials':.07,'Communication Services':.05,'Energy':.05,'Utilities':.04,'Real Estate':.03}},
+  'BTCC': {assetClass:'ETF', mer:1.00, category:'Bitcoin / Crypto', geo:{'Global/Multi-Region':1}, sectors:{'Crypto':1}},
+  'CASH': {assetClass:'ETF', mer:0.19, category:'Cash Equivalent', geo:{'Canada':1}, sectors:{'Cash & Equivalents':1}},
+  'HBNK': {assetClass:'ETF', mer:0.27, category:'Canadian Bank Sector Equity', geo:{'Canada':1}, sectors:{'Financials':1}},
+  'IGM': {assetClass:'ETF', mer:0.47, category:'US Technology Sector Equity', geo:{'United States':1}, sectors:{'Technology':1}},
+  'VDY': {assetClass:'ETF', mer:0.22, category:'Canadian Dividend Equity', geo:{'Canada':1},
+    sectors:{'Financials':.40,'Energy':.25,'Utilities':.08,'Communication Services':.08,'Materials':.05,
+      'Industrials':.05,'Consumer Staples':.04,'Real Estate':.03,'Other':.02}},
+  'VGRO': {assetClass:'ETF', mer:0.24, category:'Global Diversified Equity/Bond (80/20)',
+    geo:{'Canada':.20,'United States':.40,'International Developed':.28,'Emerging Markets':.12},
+    sectors:{'Fixed Income':.20,'Technology':.176,'Financials':.128,'Healthcare':.08,'Industrials':.088,
+      'Consumer Discretionary':.088,'Consumer Staples':.048,'Energy':.04,'Utilities':.024,'Materials':.032,
+      'Real Estate':.016,'Communication Services':.056,'Other':.024}},
+  'QQC': {assetClass:'ETF', mer:0.39, category:'US Tech-Heavy (Nasdaq 100) Equity', geo:{'United States':1},
+    sectors:{'Technology':.50,'Consumer Discretionary':.15,'Communication Services':.15,'Healthcare':.07,
+      'Consumer Staples':.05,'Industrials':.05,'Utilities':.01,'Other':.02}},
+};
+
+/* ============================= STATE ============================= */
+
+let holdings = [];      // flat array of {symbol,name,exchange,secType,accountType,accountNumber,accountClassification,quantity,price,marketValueCAD,fxRateUsed}
+let currentTab = 'overview';
+let currentAccountKey = 'ALL';
+
+const TABS = [
+  {id:'overview', label:'Overview'},
+  {id:'sectors', label:'Sectors'},
+  {id:'geography', label:'Geography'},
+  {id:'concentration', label:'Concentration & overlap'},
+  {id:'fees', label:'Fees'},
+  {id:'holdings', label:'All holdings'},
+];
+
+/* ============================= PERSISTENCE ============================= */
+
+function loadHoldings(){
+  try {
+    const raw = localStorage.getItem('ledgerline_holdings');
+    holdings = raw ? JSON.parse(raw) : [];
+  } catch(e){ holdings = []; }
+}
+function saveHoldings(){
+  try { localStorage.setItem('ledgerline_holdings', JSON.stringify(holdings)); } catch(e){}
+}
+function getOverrides(){
+  try { return JSON.parse(localStorage.getItem('ledgerline_overrides') || '{}'); } catch(e){ return {}; }
+}
+function saveOverride(symbol, entry){
+  try {
+    const o = getOverrides();
+    o[symbol] = entry;
+    localStorage.setItem('ledgerline_overrides', JSON.stringify(o));
+  } catch(e){}
+}
+
+/* ============================= CSV PARSING ============================= */
+
+function parseCSV(text){
+  const rows = [];
+  let row = [], field = '', inQuotes = false;
+  for (let i=0;i<text.length;i++){
+    const c = text[i];
+    if (inQuotes){
+      if (c === '"'){
+        if (text[i+1] === '"'){ field += '"'; i++; }
+        else inQuotes = false;
+      } else field += c;
+    } else {
+      if (c === '"') inQuotes = true;
+      else if (c === ','){ row.push(field); field=''; }
+      else if (c === '\n' || c === '\r'){
+        if (c === '\r' && text[i+1] === '\n') i++;
+        row.push(field); field='';
+        if (row.length > 1 || row[0] !== '') rows.push(row);
+        row = [];
+      } else field += c;
+    }
+  }
+  if (field.length > 0 || row.length > 0){ row.push(field); rows.push(row); }
+  return rows;
+}
+
+function parseWealthsimpleFile(text){
+  const rows = parseCSV(text).filter(r => r.length > 1);
+  if (rows.length < 2) return [];
+  const header = rows[0].map(h => h.trim());
+  const idx = name => header.indexOf(name);
+  const iSym = idx('Symbol'), iAccType = idx('Account Type'), iAccNum = idx('Account Number'),
+        iAccClass = idx('Account Classification'), iExch = idx('Exchange'), iName = idx('Name'),
+        iSecType = idx('Security Type'), iQty = idx('Quantity'), iPrice = idx('Market Price'),
+        iPriceCur = idx('Market Price Currency'), iBookCAD = idx('Book Value (CAD)'),
+        iBookMkt = idx('Book Value (Market)'), iBookMktCur = idx('Book Value Currency (Market)'),
+        iMktVal = idx('Market Value'), iMktValCur = idx('Market Value Currency');
+
+  if (iSym < 0 || iSecType < 0) return [];
+
+  const dataRows = rows.slice(1).filter(r => r.length === header.length && r[iSym] && r[iSecType]);
+
+  let ratios = [];
+  dataRows.forEach(r => {
+    const cur = r[iBookMktCur];
+    const bookCAD = parseFloat(r[iBookCAD]);
+    const bookMkt = parseFloat(r[iBookMkt]);
+    if (cur && cur !== 'CAD' && bookMkt > 0 && isFinite(bookCAD) && isFinite(bookMkt)){
+      ratios.push(bookCAD / bookMkt);
+    }
+  });
+  const fxRate = ratios.length ? (ratios.reduce((a,b) => a+b, 0) / ratios.length) : 1.38;
+
+  return dataRows.map(r => {
+    const mvCur = r[iMktValCur] || 'CAD';
+    const mvOriginal = parseFloat(r[iMktVal]) || 0;
+    const mvCAD = mvCur === 'CAD' ? mvOriginal : mvOriginal * fxRate;
+    return {
+      symbol: r[iSym],
+      name: r[iName],
+      exchange: r[iExch],
+      secType: r[iSecType],
+      accountType: r[iAccType],
+      accountNumber: r[iAccNum],
+      accountClassification: r[iAccClass],
+      quantity: parseFloat(r[iQty]) || 0,
+      price: parseFloat(r[iPrice]) || 0,
+      priceCurrency: r[iPriceCur],
+      marketValueCAD: mvCAD,
+      fxRateUsed: Number(fxRate.toFixed(4)),
+      source: 'wealthsimple'
+    };
+  });
+}
+
+function ingestFiles(fileList){
+  const files = Array.from(fileList);
+  let pending = files.length;
+  if (!pending) return;
+  files.forEach(file => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      try {
+        const parsed = parseWealthsimpleFile(e.target.result);
+        upsertHoldings(parsed);
+      } catch(err){ console.error('Failed to parse', file.name, err); }
+      pending--;
+      if (pending === 0){ saveHoldings(); refreshAccountFilter(); render(); }
+    };
+    reader.readAsText(file);
+  });
+}
+
+function upsertHoldings(newRows){
+  const key = h => h.accountNumber + '|' + h.symbol + '|' + h.accountClassification;
+  const map = new Map(holdings.map(h => [key(h), h]));
+  newRows.forEach(h => map.set(key(h), h));
+  holdings = Array.from(map.values());
+}
+
+/* ============================= CLASSIFICATION ============================= */
+
+function classify(symbol){
+  const overrides = getOverrides();
+  if (overrides[symbol]) return overrides[symbol];
+  if (SECURITY_DB[symbol]) return SECURITY_DB[symbol];
+  return null;
+}
+
+/* ============================= ANALYSIS ============================= */
+
+function accountKey(h){ return h.accountType + '|' + h.accountNumber + '|' + h.accountClassification; }
+function accountLabel(h){ return h.accountType + (h.accountClassification && h.accountClassification !== 'Trade' ? ' (' + h.accountClassification + ')' : ''); }
+
+function uniqueAccounts(){
+  const map = new Map();
+  holdings.forEach(h => map.set(accountKey(h), accountLabel(h)));
+  return Array.from(map.entries()); // [key, label]
+}
+
+function filteredHoldings(){
+  if (currentAccountKey === 'ALL') return holdings;
+  return holdings.filter(h => accountKey(h) === currentAccountKey);
+}
+
+function computeAnalysis(hs){
+  const symbolTotals = new Map(); // symbol -> {value, name, secType}
+  hs.forEach(h => {
+    const cur = symbolTotals.get(h.symbol) || {value:0, name:h.name, secType:h.secType};
+    cur.value += h.marketValueCAD;
+    symbolTotals.set(h.symbol, cur);
+  });
+
+  const total = Array.from(symbolTotals.values()).reduce((a,b) => a + b.value, 0);
+  const sectorTotals = {}; SECTOR_LIST.forEach(s => sectorTotals[s] = 0);
+  const geoTotals = {}; GEO_LIST.forEach(g => geoTotals[g] = 0);
+  const assetClassTotals = {};
+  let unclassifiedValue = 0;
+  const unclassifiedSymbols = [];
+  let feeWeighted = 0;
+  const overlapMap = new Map(); // category -> {symbols:[], value:0}
+  const rows = [];
+
+  symbolTotals.forEach((data, symbol) => {
+    const weight = total > 0 ? data.value / total : 0;
+    const cls = classify(symbol);
+    let assetClass = 'Unclassified';
+    if (cls){
+      assetClass = cls.assetClass;
+      Object.entries(cls.sectors || {}).forEach(([s,f]) => { sectorTotals[s] = (sectorTotals[s]||0) + weight * f; });
+      Object.entries(cls.geo || {}).forEach(([g,f]) => { geoTotals[g] = (geoTotals[g]||0) + weight * f; });
+      if (cls.mer) feeWeighted += weight * cls.mer;
+      if (cls.assetClass === 'ETF' && cls.category){
+        const bucket = overlapMap.get(cls.category) || {symbols:[], value:0};
+        bucket.symbols.push(symbol); bucket.value += data.value;
+        overlapMap.set(cls.category, bucket);
+      }
+    } else {
+      unclassifiedValue += data.value;
+      unclassifiedSymbols.push(symbol);
+    }
+    assetClassTotals[assetClass] = (assetClassTotals[assetClass] || 0) + data.value;
+    rows.push({symbol, name: data.name, secType: data.secType, value: data.value, weight, cls});
+  });
+
+  rows.sort((a,b) => b.value - a.value);
+
+  const overlapGroups = Array.from(overlapMap.entries())
+    .map(([category, d]) => ({category, symbols:d.symbols, value:d.value, weight: total>0?d.value/total:0}))
+    .filter(g => g.symbols.length > 1)
+    .sort((a,b) => b.value - a.value);
+
+  return {
+    total, rows, sectorTotals, geoTotals, assetClassTotals,
+    unclassifiedValue, unclassifiedSymbols,
+    unclassifiedWeight: total>0 ? unclassifiedValue/total : 0,
+    feeWeighted, overlapGroups
+  };
+}
+
+function buildFlags(a){
+  const flags = [];
+  if (a.total === 0) return flags;
+
+  const top = a.rows[0];
+  if (top && top.weight > 0.08){
+    flags.push({warn:true, html:`<b>${esc(top.symbol)}</b> makes up ${pct(top.weight)} of the portfolio being reviewed — a single-holding weight worth being aware of.`});
+  }
+  const top5weight = a.rows.slice(0,5).reduce((s,r)=>s+r.weight,0);
+  if (top5weight > 0.55){
+    flags.push({warn:true, html:`The top 5 holdings together account for ${pct(top5weight)} of value — a fairly concentrated portfolio by holding count.`});
+  }
+
+  a.overlapGroups.forEach(g => {
+    flags.push({warn:false, html:`<b>${g.symbols.join(', ')}</b> are all tagged as "${esc(g.category)}" — combined they're ${pct(g.weight)} of the portfolio. Worth checking how much their underlying holdings actually overlap.`});
+  });
+
+  SECTOR_LIST.forEach(sector => {
+    const bench = BENCHMARK_SECTORS[sector];
+    const mine = a.sectorTotals[sector] || 0;
+    if (bench >= 0.03){
+      if (mine < bench * 0.35){
+        flags.push({warn:false, html:`Little to no exposure to <b>${sector}</b> (${pct(mine)} vs. a broad-market reference of ~${pct(bench)}).`});
+      } else if (mine > bench * 1.8){
+        flags.push({warn:false, html:`<b>${sector}</b> is overweight relative to a broad-market reference: ${pct(mine)} vs. ~${pct(bench)}.`});
+      }
+    }
+  });
+
+  const expensiveFunds = a.rows.filter(r => r.cls && r.cls.mer && r.cls.mer >= 0.5);
+  expensiveFunds.forEach(r => {
+    flags.push({warn:false, html:`<b>${r.symbol}</b> carries an approx. MER of ${r.cls.mer.toFixed(2)}% — higher than a typical broad-market index fund (~0.05–0.25%).`});
+  });
+
+  if (a.unclassifiedSymbols.length){
+    flags.push({warn:true, html:`${a.unclassifiedSymbols.length} holding(s) — ${a.unclassifiedSymbols.map(esc).join(', ')} — aren't in the classification lookup yet (${pct(a.unclassifiedWeight)} of value). Classify them on the "All holdings" tab for a fuller picture.`});
+  }
+
+  return flags;
+}
+
+/* ============================= HELPERS ============================= */
+
+function esc(s){ return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function money(v){ return v.toLocaleString('en-CA', {style:'currency', currency:'CAD', maximumFractionDigits:0}); }
+function pct(v){ return (v*100).toFixed(1) + '%'; }
+
+function barRow(label, valueFrac, benchFrac){
+  const w = Math.min(100, valueFrac*100);
+  const bw = benchFrac !== undefined ? Math.min(100, benchFrac*100) : null;
+  return `<div class="bar-row">
+    <div class="bar-top"><span class="name">${esc(label)}</span><span class="val">${pct(valueFrac)}${benchFrac!==undefined ? ' <span style="opacity:.6">· ref ~'+pct(benchFrac)+'</span>' : ''}</span></div>
+    <div class="bar-track"><div class="bar-fill" style="width:${w}%"></div>${bw!==null?`<div class="bar-bench" style="left:${bw}%"></div>`:''}</div>
+  </div>`;
+}
+
+/* ============================= LIVE SEC EDGAR OVERLAP LOOKUP =============================
+   Uses SEC EDGAR's free, keyless public data (data.sec.gov / www.sec.gov) to pull the actual
+   holdings of a fund from its most recent Form N-PORT filing. This only works for funds that
+   are REGISTERED WITH THE US SEC — most US-listed ETFs (e.g. SCHD, IGM here), but NOT
+   Canadian-domiciled ETFs (XEQT, VCN, VFV-the-Canadian-one, etc), which file with Canadian
+   regulators instead and have no equivalent free machine-readable source. For those, this
+   falls back to the sector-category grouping already computed above.
+
+   Note: this reaches out to sec.gov, which is blocked by the claude.ai artifact preview's
+   sandbox — it will only work once this file is hosted elsewhere (GitHub Pages, local file,
+   your own server). It also couldn't be end-to-end tested against live SEC data from the
+   environment this was built in, so treat it as a first pass to verify once deployed.
+============================================================================================ */
+
+let _fundTickerMapPromise = null;
+const _secCache = { submissions:{}, holdings:{} };
+
+async function loadFundTickerMap(){
+  if (!_fundTickerMapPromise){
+    _fundTickerMapPromise = fetch('https://www.sec.gov/files/company_tickers_mf.json')
+      .then(r => { if (!r.ok) throw new Error('SEC fund ticker file: HTTP ' + r.status); return r.json(); })
+      .then(json => {
+        const map = new Map();
+        if (Array.isArray(json.data)){
+          const fields = json.fields || ['cik','seriesId','classId','symbol'];
+          const symIdx = fields.indexOf('symbol');
+          const cikIdx = fields.indexOf('cik');
+          json.data.forEach(row => {
+            const sym = (row[symIdx]||'').toUpperCase();
+            if (sym) map.set(sym, {cik: row[cikIdx], seriesId: row[fields.indexOf('seriesId')], classId: row[fields.indexOf('classId')]});
+          });
+        } else {
+          Object.values(json).forEach(row => {
+            const sym = (row.symbol||row.ticker||'').toUpperCase();
+            if (sym) map.set(sym, {cik: row.cik, seriesId: row.seriesId, classId: row.classId});
+          });
+        }
+        return map;
+      });
+  }
+  return _fundTickerMapPromise;
+}
+
+function pad10(cik){ return String(cik).padStart(10,'0'); }
+
+async function getLatestNportFiling(cik){
+  const key = String(cik);
+  if (_secCache.submissions[key]) return _secCache.submissions[key];
+  const res = await fetch(`https://data.sec.gov/submissions/CIK${pad10(cik)}.json`);
+  if (!res.ok) throw new Error('SEC submissions lookup failed: HTTP ' + res.status);
+  const json = await res.json();
+  const recent = json.filings && json.filings.recent;
+  if (!recent) throw new Error('No filing history returned');
+  let found = null;
+  for (let i=0;i<recent.form.length;i++){
+    if (recent.form[i] === 'NPORT-P'){
+      found = { accessionNumber: recent.accessionNumber[i], filingDate: recent.filingDate[i] };
+      break;
+    }
+  }
+  if (!found) throw new Error('No NPORT-P filing found in recent submissions');
+  _secCache.submissions[key] = found;
+  return found;
+}
+
+async function fetchNportHoldings(cik, accessionNumber){
+  const cacheKey = cik + '|' + accessionNumber;
+  if (_secCache.holdings[cacheKey]) return _secCache.holdings[cacheKey];
+  const accNoDashes = accessionNumber.replace(/-/g, '');
+  const url = `https://www.sec.gov/Archives/edgar/data/${Number(cik)}/${accNoDashes}/primary_doc.xml`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error('Could not fetch N-PORT filing: HTTP ' + res.status);
+  const xmlText = await res.text();
+  const doc = new DOMParser().parseFromString(xmlText, 'text/xml');
+  if (doc.querySelector('parsererror')) throw new Error('Could not parse N-PORT XML');
+  const nodes = doc.getElementsByTagName('invstOrSec');
+  const holdings = [];
+  for (let i=0;i<nodes.length;i++){
+    const n = nodes[i];
+    const get = tag => { const el = n.getElementsByTagName(tag)[0]; return el ? el.textContent.trim() : ''; };
+    const cusip = get('cusip');
+    const name = get('name') || get('title');
+    const pctVal = parseFloat(get('pctVal')) || 0;
+    if (name && pctVal > 0) holdings.push({ key: cusip && cusip !== 'N/A' ? cusip : name.toUpperCase(), name, pct: pctVal });
+  }
+  if (!holdings.length) throw new Error('N-PORT filing parsed but no holdings found');
+  _secCache.holdings[cacheKey] = holdings;
+  return holdings;
+}
+
+function computeHoldingsOverlap(holdingsA, holdingsB){
+  const mapB = new Map(holdingsB.map(h => [h.key, h.pct]));
+  let overlap = 0, shared = 0;
+  holdingsA.forEach(h => {
+    const pctB = mapB.get(h.key);
+    if (pctB !== undefined){ overlap += Math.min(h.pct, pctB); shared++; }
+  });
+  return { overlapPct: overlap, sharedCount: shared };
+}
+
+async function tryLiveOverlap(symbolA, symbolB){
+  const map = await loadFundTickerMap();
+  const fa = map.get(symbolA.toUpperCase());
+  const fb = map.get(symbolB.toUpperCase());
+  if (!fa) throw new Error(`${symbolA} isn't in the SEC's fund registry — likely not a US-registered fund`);
+  if (!fb) throw new Error(`${symbolB} isn't in the SEC's fund registry — likely not a US-registered fund`);
+  const [filingA, filingB] = await Promise.all([getLatestNportFiling(fa.cik), getLatestNportFiling(fb.cik)]);
+  const [holdingsA, holdingsB] = await Promise.all([
+    fetchNportHoldings(fa.cik, filingA.accessionNumber),
+    fetchNportHoldings(fb.cik, filingB.accessionNumber)
+  ]);
+  const { overlapPct, sharedCount } = computeHoldingsOverlap(holdingsA, holdingsB);
+  return { overlapPct, sharedCount, asOfA: filingA.filingDate, asOfB: filingB.filingDate };
+}
+
+/* ============================= LIVE ALPHA VANTAGE LOOKUP =============================
+   Complements the SEC EDGAR path above: Alpha Vantage's free tier documents an OVERVIEW
+   function (sector/industry/country for stocks) and an ETF_PROFILE function (sector
+   weights + holdings for ETFs) that, unlike SEC EDGAR, are not limited to US-registered
+   funds — Alpha Vantage lists Canadian (TSX/TSXV) coverage for price data using a ".TRT"
+   / ".TRV" exchange suffix (e.g. SHOP.TRT).
+
+   Two real unknowns, unverified from this environment (no network access to
+   alphavantage.co here, and the claude.ai preview blocks the request entirely):
+   1) Whether ETF_PROFILE specifically (not just price data) has coverage for
+      Canadian-domiciled ETFs — fundamentals coverage is often narrower than price coverage.
+   2) The exact exchange-suffix convention Wealthsimple's plain TSX tickers (no suffix,
+      e.g. "AP.UN", "TA") need — this tries the symbol as-is first, then a ".TRT" variant.
+   The free tier is also very limited (25 requests/day total), so successful lookups are
+   cached permanently via saveOverride() and never re-fetched.
+============================================================================================ */
+
+function getAvKey(){
+  try { return localStorage.getItem('ledgerline_av_key') || ''; } catch(e){ return ''; }
+}
+function saveAvKey(key){
+  try { localStorage.setItem('ledgerline_av_key', key); } catch(e){}
+}
+
+function avSymbolCandidates(symbol){
+  const candidates = [symbol];
+  if (symbol.includes('.TO')) candidates.push(symbol.replace('.TO', '.TRT'));
+  else if (!symbol.includes('.')) candidates.push(symbol + '.TRT');
+  return [...new Set(candidates)];
+}
+
+async function fetchAv(params, apiKey){
+  const url = 'https://www.alphavantage.co/query?' + new URLSearchParams({...params, apikey: apiKey}).toString();
+  const res = await fetch(url);
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  const json = await res.json();
+  if (json['Note']) throw new Error('Rate limit reached (25/day on the free tier) — try again tomorrow');
+  if (json['Information']) throw new Error(json['Information']);
+  if (json['Error Message']) throw new Error('Symbol not recognized');
+  return json;
+}
+
+const AV_SECTOR_MAP = {
+  'TECHNOLOGY':'Technology', 'FINANCE':'Financials', 'FINANCIAL SERVICES':'Financials',
+  'HEALTH CARE':'Healthcare', 'HEALTHCARE':'Healthcare', 'ENERGY':'Energy',
+  'INDUSTRIALS':'Industrials', 'CONSUMER CYCLICAL':'Consumer Discretionary',
+  'CONSUMER DISCRETIONARY':'Consumer Discretionary', 'CONSUMER DEFENSIVE':'Consumer Staples',
+  'CONSUMER STAPLES':'Consumer Staples', 'UTILITIES':'Utilities',
+  'BASIC MATERIALS':'Materials', 'MATERIALS':'Materials', 'REAL ESTATE':'Real Estate',
+  'COMMUNICATION SERVICES':'Communication Services', 'TELECOMMUNICATIONS':'Communication Services',
+};
+function mapAvSector(raw){
+  if (!raw) return 'Other';
+  return AV_SECTOR_MAP[raw.toUpperCase()] || 'Other';
+}
+function mapAvCountry(raw){
+  if (!raw) return 'Global/Multi-Region';
+  const r = raw.toUpperCase();
+  if (r.includes('CANADA')) return 'Canada';
+  if (r.includes('USA') || r.includes('UNITED STATES')) return 'United States';
+  return 'International Developed';
+}
+
+async function tryAlphaVantageClassify(symbol, secType){
+  const apiKey = getAvKey();
+  if (!apiKey) throw new Error('No Alpha Vantage key set — add one in the sidebar first');
+  const isEtf = secType === 'EXCHANGE_TRADED_FUND';
+  const candidates = avSymbolCandidates(symbol);
+  let lastErr = null;
+
+  for (const candidate of candidates){
+    try {
+      if (isEtf){
+        const json = await fetchAv({ function: 'ETF_PROFILE', symbol: candidate }, apiKey);
+        if (!json.sectors && !json.holdings) throw new Error('No ETF profile data returned for this symbol');
+        const sectors = {};
+        (json.sectors || []).forEach(s => {
+          const mapped = mapAvSector(s.sector);
+          const w = parseFloat(s.weight) || 0;
+          sectors[mapped] = (sectors[mapped] || 0) + w;
+        });
+        const entry = {
+          assetClass: 'ETF',
+          mer: json.net_expense_ratio ? parseFloat(json.net_expense_ratio) * 100 : undefined,
+          sectors: Object.keys(sectors).length ? sectors : {'Other':1},
+          geo: {'Global/Multi-Region':1}, // AV's ETF_PROFILE doesn't return geography breakdown
+          category: 'Alpha Vantage lookup (' + candidate + ')'
+        };
+        saveOverride(symbol, entry);
+        return entry;
+      } else {
+        const json = await fetchAv({ function: 'OVERVIEW', symbol: candidate }, apiKey);
+        if (!json.Sector && !json.Name) throw new Error('No company overview data returned for this symbol');
+        const entry = {
+          assetClass: 'Stock',
+          sectors: { [mapAvSector(json.Sector)]: 1 },
+          geo: { [mapAvCountry(json.Country)]: 1 }
+        };
+        saveOverride(symbol, entry);
+        return entry;
+      }
+    } catch(err){ lastErr = err; }
+  }
+  throw lastErr || new Error('Not found');
+}
+
+/* ============================= RENDERING ============================= */
+
+function render(){
+  renderSidebarTabs();
+  const main = document.getElementById('main');
+  if (holdings.length === 0){ main.innerHTML = renderEmptyState(); attachUploadHandlers(); return; }
+
+  const hs = filteredHoldings();
+  const a = computeAnalysis(hs);
+
+  let html = '';
+  if (currentTab === 'overview') html = renderOverview(a);
+  else if (currentTab === 'sectors') html = renderSectors(a);
+  else if (currentTab === 'geography') html = renderGeography(a);
+  else if (currentTab === 'concentration') html = renderConcentration(a);
+  else if (currentTab === 'fees') html = renderFees(a);
+  else if (currentTab === 'holdings') html = renderHoldingsTable(a);
+
+  main.innerHTML = html;
+  attachDynamicHandlers(a);
+}
+
+function renderSidebarTabs(){
+  const nav = document.getElementById('tabNav');
+  nav.innerHTML = TABS.map(t => `<button class="tab-btn ${t.id===currentTab?'active':''}" data-tab="${t.id}">${t.label}</button>`).join('');
+  nav.querySelectorAll('.tab-btn').forEach(btn => btn.onclick = () => { currentTab = btn.dataset.tab; render(); });
+}
+
+function refreshAccountFilter(){
+  const sel = document.getElementById('accountFilter');
+  const accounts = uniqueAccounts();
+  sel.innerHTML = `<option value="ALL">All accounts</option>` +
+    accounts.map(([key,label]) => `<option value="${esc(key)}">${esc(label)}</option>`).join('');
+  sel.value = currentAccountKey;
+  sel.onchange = () => { currentAccountKey = sel.value; render(); };
+}
+
+function renderEmptyState(){
+  return `
+  <div class="page-head">
+    <h1>Ledgerline</h1>
+    <p>Upload a Wealthsimple holdings report to see how your portfolio breaks down by sector, geography, fees, and concentration.</p>
+  </div>
+  <div class="dropzone" id="dropzone">
+    <h3>Drop your holdings report here</h3>
+    <p>From Wealthsimple: Activity → Reports → Holdings report (CSV). You can upload one file per account, or several at once.</p>
+    <button class="btn" id="chooseFileBtn">Choose CSV file(s)</button>
+    <div class="privacy-note">Everything is parsed in your browser. Nothing is uploaded to a server.</div>
+  </div>`;
+}
+
+function renderOverview(a){
+  const flags = buildFlags(a);
+  const assetClassEntries = Object.entries(a.assetClassTotals).sort((x,y)=>y[1]-x[1]);
+  return `
+  <div class="page-head">
+    <h1>Overview</h1>
+    <p>A snapshot of the ${currentAccountKey==='ALL' ? 'combined portfolio' : 'selected account'}.</p>
+  </div>
+  <div class="panel">
+    <div class="stat-row">
+      <div class="stat"><span class="num">${money(a.total)}</span><span class="lbl">Total value</span></div>
+      <div class="stat"><span class="num">${a.rows.length}</span><span class="lbl">Distinct holdings</span></div>
+      <div class="stat"><span class="num">${pct(a.feeWeighted/100*1)}</span><span class="lbl">Weighted avg. MER (approx.)</span></div>
+    </div>
+  </div>
+  <div class="panel">
+    <h2>Asset mix</h2>
+    <p class="sub">By security type, before look-through into fund holdings.</p>
+    ${assetClassEntries.map(([k,v]) => barRow(k, a.total ? v/a.total : 0)).join('')}
+  </div>
+  <div class="panel">
+    <h2>What stands out</h2>
+    <p class="sub">Educational observations — not personalized investment advice.</p>
+    <div class="flag-list">
+      ${flags.length ? flags.map(f => `<div class="flag ${f.warn?'warn':''}"><div class="dot"></div><div>${f.html}</div></div>`).join('') : '<div class="flag"><div class="dot"></div><div>No notable flags with the current classification data.</div></div>'}
+    </div>
+  </div>`;
+}
+
+function renderSectors(a){
+  const gapSectors = SECTOR_LIST.filter(s => BENCHMARK_SECTORS[s] >= 0.03 && (a.sectorTotals[s]||0) < BENCHMARK_SECTORS[s]*0.35 && SECTOR_ETF_IDEAS[s]);
+  return `
+  <div class="page-head">
+    <h1>Sector exposure</h1>
+    <p>Look-through sector weights, including the underlying holdings of ETFs where known. Reference line (<span class="tick"></span>) shows an illustrative broad global-equity-market weight — not a target to hit.</p>
+  </div>
+  <div class="panel">
+    ${SECTOR_LIST.filter(s => (a.sectorTotals[s]||0) > 0.0005 || BENCHMARK_SECTORS[s] >= 0.02).map(s => barRow(s, a.sectorTotals[s]||0, BENCHMARK_SECTORS[s])).join('')}
+    ${a.unclassifiedWeight > 0.0005 ? barRow('Unclassified', a.unclassifiedWeight) : ''}
+  </div>
+  ${gapSectors.length ? `
+  <div class="panel">
+    <h2>Filling the gaps</h2>
+    <p class="sub">Sectors where this portfolio has little to no exposure, with a couple of well-known ETFs that focus there — for your own research, not a personalized recommendation.</p>
+    <div class="flag-list">
+      ${gapSectors.map(s => `<div class="flag"><div class="dot"></div><div><b>${esc(s)}</b> — ${SECTOR_ETF_IDEAS[s].map(i => `${esc(i.s)} (${esc(i.n)})`).join(', ')}</div></div>`).join('')}
+    </div>
+  </div>` : ''}`;
+}
+
+function renderGeography(a){
+  return `
+  <div class="page-head">
+    <h1>Geographic exposure</h1>
+    <p>Reference line shows illustrative global market-cap weights. Many Canadian investors intentionally overweight Canada for tax and currency reasons — this isn't a target, just a comparison point.</p>
+  </div>
+  <div class="panel">
+    ${GEO_LIST.map(g => barRow(g, a.geoTotals[g]||0, BENCHMARK_GEO[g])).join('')}
+    ${a.unclassifiedWeight > 0.0005 ? barRow('Unclassified', a.unclassifiedWeight) : ''}
+  </div>`;
+}
+
+function renderConcentration(a){
+  const top = a.rows.slice(0, 12);
+  return `
+  <div class="page-head">
+    <h1>Concentration &amp; overlap</h1>
+    <p>Largest individual positions, and ETFs/funds that occupy similar roles in the portfolio.</p>
+  </div>
+  <div class="panel">
+    <h2>Largest positions</h2>
+    <table class="data">
+      <thead><tr><th>Symbol</th><th>Name</th><th class="num">Value</th><th class="num">Weight</th></tr></thead>
+      <tbody>
+        ${top.map(r => `<tr><td class="ticker">${esc(r.symbol)}</td><td>${esc(r.name||'')}</td><td class="num">${money(r.value)}</td><td class="num">${pct(r.weight)}</td></tr>`).join('')}
+      </tbody>
+    </table>
+  </div>
+  <div class="panel">
+    <h2>Overlapping funds</h2>
+    <p class="sub">ETFs grouped by the role they play (e.g. "Canadian broad equity"). Holding more than one in the same group often means duplicated underlying exposure.</p>
+    ${a.overlapGroups.length ? a.overlapGroups.map((g,i) => `
+      <div class="flag">
+        <div class="dot"></div>
+        <div>
+          <b>${esc(g.category)}</b> — ${g.symbols.map(esc).join(', ')} · combined ${pct(g.weight)} of the portfolio
+          ${g.symbols.length >= 2 ? `<div style="margin-top:6px;">
+            <button class="btn-tiny sec-lookup-btn" data-a="${esc(g.symbols[0])}" data-b="${esc(g.symbols[1])}" data-target="sec-result-${i}">Check live overlap (SEC EDGAR)</button>
+            <span id="sec-result-${i}" style="font-size:12.5px; color:var(--color-ink-faint); margin-left:6px;"></span>
+          </div>` : ''}
+        </div>
+      </div>
+    `).join('') : '<p class="sub">No overlapping fund categories detected.</p>'}
+    <p class="sub" style="margin-top:14px;">Live lookup only works for US SEC-registered funds, and only once this page is running outside the claude.ai preview (e.g. on GitHub Pages) — the preview's sandbox blocks the request. Canadian-domiciled ETFs (most of what shows up here) aren't in the SEC's system, so the category grouping above is the best available signal for those.</p>
+  </div>`;
+}
+
+function renderFees(a){
+  const funds = a.rows.filter(r => r.cls && r.cls.assetClass === 'ETF').sort((x,y) => (y.cls.mer||0) - (x.cls.mer||0));
+  return `
+  <div class="page-head">
+    <h1>Fees</h1>
+    <p>Approximate management expense ratios (MER), weighted by position size. These are illustrative estimates for this prototype, not pulled from a live fund-facts feed — verify against the fund's current prospectus.</p>
+  </div>
+  <div class="panel">
+    <div class="stat-row">
+      <div class="stat"><span class="num">${(a.feeWeighted).toFixed(2)}%</span><span class="lbl">Weighted avg. MER across classified funds</span></div>
+    </div>
+  </div>
+  <div class="panel">
+    <h2>Fund fees, highest to lowest</h2>
+    <table class="data">
+      <thead><tr><th>Symbol</th><th>Name</th><th class="num">Weight</th><th class="num">Approx. MER</th></tr></thead>
+      <tbody>
+        ${funds.map(r => `<tr><td class="ticker">${esc(r.symbol)}</td><td>${esc(r.name||'')}</td><td class="num">${pct(r.weight)}</td><td class="num">${(r.cls.mer||0).toFixed(2)}%</td></tr>`).join('')}
+      </tbody>
+    </table>
+  </div>`;
+}
+
+const CLASS_OPTIONS = ['Stock','ETF','Cash','Crypto','Commodity'];
+
+function renderHoldingsTable(a){
+  return `
+  <div class="page-head">
+    <h1>All holdings</h1>
+    <p>Every distinct symbol in ${currentAccountKey==='ALL'?'the uploaded accounts':'this account'}. Unclassified holdings can be tagged manually so they show up correctly elsewhere.</p>
+  </div>
+  <div class="panel">
+    <table class="data">
+      <thead><tr><th>Symbol</th><th>Name</th><th class="num">Value</th><th class="num">Weight</th><th>Classification</th></tr></thead>
+      <tbody>
+        ${a.rows.map(r => `<tr>
+          <td class="ticker">${esc(r.symbol)}</td>
+          <td>${esc(r.name||'')}</td>
+          <td class="num">${money(r.value)}</td>
+          <td class="num">${pct(r.weight)}</td>
+          <td>${r.cls ? classifiedTag(r) : unclassifiedForm(r.symbol, r.secType)}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table>
+  </div>`;
+}
+
+function classifiedTag(r){
+  const sectors = Object.keys(r.cls.sectors||{});
+  const geo = Object.keys(r.cls.geo||{});
+  return `<span class="tag">${esc(r.cls.assetClass)}</span> ${esc(sectors[0]||'')}${sectors.length>1?' +':''} · ${esc(geo[0]||'')}${geo.length>1?' +':''}
+    <a class="edit-link" data-edit="${esc(r.symbol)}">edit</a>`;
+}
+
+function unclassifiedForm(symbol, secType){
+  return `<span class="tag gap">Unclassified</span>
+    <button class="btn-tiny av-lookup-btn" data-symbol="${esc(symbol)}" data-sectype="${esc(secType||'')}" style="margin-left:6px;">Try Alpha Vantage</button>
+    <span class="av-result" data-for="${esc(symbol)}" style="font-size:12px; color:var(--color-ink-faint); margin-left:4px;"></span>
+    <div class="classify-form" data-symbol="${esc(symbol)}" style="margin-top:6px;">
+      <select class="mini asset-class">${CLASS_OPTIONS.map(c=>`<option>${c}</option>`).join('')}</select>
+      <select class="mini sector">${SECTOR_LIST.map(s=>`<option>${s}</option>`).join('')}</select>
+      <select class="mini geo">${GEO_LIST.map(g=>`<option>${g}</option>`).join('')}</select>
+      <input class="mini mer" type="number" step="0.01" placeholder="MER %" style="width:70px">
+      <button class="btn-tiny" data-save="${esc(symbol)}">Save</button>
+    </div>`;
+}
+
+/* ============================= EVENT WIRING ============================= */
+
+function attachUploadHandlers(){
+  const dz = document.getElementById('dropzone');
+  const chooseBtn = document.getElementById('chooseFileBtn');
+  const fileInput = document.getElementById('fileInput');
+  if (chooseBtn) chooseBtn.onclick = () => fileInput.click();
+  if (dz){
+    dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag'); });
+    dz.addEventListener('dragleave', () => dz.classList.remove('drag'));
+    dz.addEventListener('drop', e => {
+      e.preventDefault(); dz.classList.remove('drag');
+      if (e.dataTransfer.files.length) ingestFiles(e.dataTransfer.files);
+    });
+  }
+}
+
+function attachDynamicHandlers(a){
+  document.querySelectorAll('.av-lookup-btn').forEach(btn => {
+    btn.onclick = async () => {
+      const symbol = btn.dataset.symbol, secType = btn.dataset.sectype;
+      const target = document.querySelector(`.av-result[data-for="${CSS.escape(symbol)}"]`);
+      btn.disabled = true;
+      target.textContent = 'Checking Alpha Vantage…';
+      try {
+        await tryAlphaVantageClassify(symbol, secType);
+        target.textContent = 'Found it — classified.';
+        render();
+      } catch(err){
+        target.textContent = `No luck — ${err.message}.`;
+        btn.disabled = false;
+      }
+    };
+  });
+  document.querySelectorAll('.sec-lookup-btn').forEach(btn => {
+    btn.onclick = async () => {
+      const symA = btn.dataset.a, symB = btn.dataset.b;
+      const target = document.getElementById(btn.dataset.target);
+      btn.disabled = true;
+      target.textContent = 'Checking SEC EDGAR…';
+      try {
+        const result = await tryLiveOverlap(symA, symB);
+        target.textContent = `Measured: ${symA} and ${symB} share ${pct(result.overlapPct/100)} of net assets by weight (${result.sharedCount} common holdings, per most recent N-PORT filings).`;
+      } catch(err){
+        target.textContent = `Couldn't measure directly — ${err.message}.`;
+      }
+      btn.disabled = false;
+    };
+  });
+  document.querySelectorAll('[data-save]').forEach(btn => {
+    btn.onclick = () => {
+      const symbol = btn.dataset.save;
+      const form = document.querySelector(`.classify-form[data-symbol="${CSS.escape(symbol)}"]`);
+      const assetClass = form.querySelector('.asset-class').value;
+      const sector = form.querySelector('.sector').value;
+      const geo = form.querySelector('.geo').value;
+      const merVal = parseFloat(form.querySelector('.mer').value);
+      saveOverride(symbol, {
+        assetClass, sectors:{[sector]:1}, geo:{[geo]:1},
+        mer: isFinite(merVal) ? merVal : undefined,
+        category: assetClass === 'ETF' ? sector + ' (manual)' : undefined
+      });
+      render();
+    };
+  });
+  document.querySelectorAll('[data-edit]').forEach(link => {
+    link.onclick = () => {
+      const symbol = link.dataset.edit;
+      const cur = classify(symbol) || {};
+      const sector = Object.keys(cur.sectors||{})[0] || SECTOR_LIST[0];
+      const geo = Object.keys(cur.geo||{})[0] || GEO_LIST[0];
+      const cell = link.closest('td');
+      cell.innerHTML = `<span class="tag gap">Editing</span>
+        <div class="classify-form" data-symbol="${esc(symbol)}" style="margin-top:6px;">
+          <select class="mini asset-class">${CLASS_OPTIONS.map(c=>`<option ${c===cur.assetClass?'selected':''}>${c}</option>`).join('')}</select>
+          <select class="mini sector">${SECTOR_LIST.map(s=>`<option ${s===sector?'selected':''}>${s}</option>`).join('')}</select>
+          <select class="mini geo">${GEO_LIST.map(g=>`<option ${g===geo?'selected':''}>${g}</option>`).join('')}</select>
+          <input class="mini mer" type="number" step="0.01" placeholder="MER %" value="${cur.mer||''}" style="width:70px">
+          <button class="btn-tiny" data-save="${esc(symbol)}">Save</button>
+        </div>`;
+      attachDynamicHandlers(a);
+    };
+  });
+}
+
+document.getElementById('avKeyInput').value = getAvKey();
+document.getElementById('avKeyInput').addEventListener('change', e => saveAvKey(e.target.value.trim()));
+document.getElementById('fileInput').addEventListener('change', e => { if (e.target.files.length) ingestFiles(e.target.files); });
+document.getElementById('addMoreBtn').addEventListener('click', () => document.getElementById('fileInput').click());
+document.getElementById('clearDataBtn').addEventListener('click', () => {
+  if (confirm('Clear all uploaded holdings? Manual classifications are kept.')){
+    holdings = []; saveHoldings(); currentAccountKey = 'ALL'; render();
+  }
+});
+
+/* ============================= INIT ============================= */
+
+loadHoldings();
+refreshAccountFilter();
+render();
+</script>
+</body>
+</html>
